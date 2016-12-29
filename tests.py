@@ -151,16 +151,15 @@ class BaseCase:
         self.compare_cells(self.grid, expected)
 
     def test_writing(self):
-        with open("t_out.csv", "w") as file:
+        with open("tests/t_out.csv", "w") as file:
             self.grid.save_to_file(file)
-        with open("t_out.csv", "r") as file:
+        with open("tests/t_out.csv", "r") as file:
             written_grid = ConfigGrid.from_csv_file(file)
         expected = \
             (("Test Grid", "Col 1", "Col 2", "Col 3", "Col 4"),
              (    "Row 1",     "1",     "2",     "3",     "4"),
              (    "Row 2",     "5",     "6",     "7",     "8"))
         self.compare_cells(written_grid, expected)
-
 
 
 class FromLinesCase(unittest.TestCase, BaseCase):
@@ -180,7 +179,7 @@ class FromCsvCase(unittest.TestCase, BaseCase):
             return int(value)
 
     def setUp(self):
-        with open(r"test_grid.csv", "r") as file:
+        with open(r"tests/test_grid.csv", "r") as file:
             self.grid = self.IntGrid.from_csv_file(file)
 
 
