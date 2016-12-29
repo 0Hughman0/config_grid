@@ -5,6 +5,66 @@ from collections import namedtuple
 Cell = namedtuple("Cell", ["row", "col", "value"])
 
 
+class UniqueList(list):
+
+    def is_new(self, new_value):
+        if new_value in self:
+            return False
+        return True
+
+    def check_still_unique(self):
+        if len(self) == len(set(self)):
+            return True
+        return False
+
+    def insert(self, i, x):
+        if not self.is_new(x):
+            raise ValueError("All new values must be unique")
+        super().insert(i, x)
+
+    def append(self, x):
+        if not self.is_new(x):
+            raise ValueError("All new values must be unique")
+        super().append(x)
+
+
+    def __iadd__(self, *args, **kwargs):
+        val = super().__iadd__(*args, **kwargs)
+        if val.check_still_unique():
+            return val
+        raise ValueError("All new values must be unique")
+
+    def extend(self, t):
+        super().extend(t)
+        if not self.check_still_unique():
+            raise ValueError("All new values must be unique")
+
+    def __mul__(self, n):
+        raise ValueError("This operator is not supported")
+
+    def __init__(self, iterable=None):
+        super().__init__(iterable)
+        if not self.check_still_unique():
+            raise ValueError("All new values must be unique")
+
+    def __add__(self, y):
+        val = super().__add__(y)
+        if self.check_still_unique():
+            return val
+        raise ValueError("All new values must be unique")
+
+    def __setitem__(self, i, y):
+        if not self.is_new(y):
+            raise ValueError("All new values must be unique")
+        super().__setitem__(i, y)
+
+    def swap(self, i, j):
+        t1, self[i] = self[i], True
+        t2, self[j] = self[j], False
+        self[i] = t2
+        self[j] = t1
+
+
 class LineDict(dict):
     """
     Helper class for ConfigGrid
@@ -14,14 +74,14 @@ class LineDict(dict):
     Methods are the same as a normal dict, but with the ordering considered, apart from DIRECT ITERATION ITERATES OVER
     CONTENTS NOT KEYS.
     """
-    def __init__(self, col_headings, default=""):
-        assert isinstance(col_headings, list), "headings must be lists"
+    def __init__(self, headings, default=""):
+        assert isinstance(headings, list), "headings must be lists"
         super().__init__()
-        self.col_headings = col_headings
+        self.headings = headings
         self.default = default
 
     def __setitem__(self, key, value):
-        if key not in self.col_headings:
+        if key not in self.headings:
             raise KeyError("{} not found in Columns".format(key))
         return super().__setitem__(key, value)
 
@@ -29,31 +89,31 @@ class LineDict(dict):
         try:
             return super().__getitem__(item)
         except KeyError:
-            if item not in self.col_headings:
+            if item not in self.headings:
                 raise KeyError("{} not found in Columns".format(item))
             else:
                 return self.default
 
     def __iter__(self):
-        return (self[position] for position in self.col_headings)
+        return (self[position] for position in self.headings)
 
     def keys(self):
-        return self.col_headings
+        return self.headings
 
     def items(self):
-        return zip(self.col_headings, iter(self))
+        return zip(self.headings, iter(self))
 
     def values(self):
         return iter(self)
 
     def update(self, incoming_dict):
-        if all(key in self.col_headings for key in incoming_dict.keys()):
+        if all(key in self.headings for key in incoming_dict.keys()):
             super().update(incoming_dict)
         else:
             raise KeyError("All keys in incoming_dict must also be in this dict")
 
     def copy(self):
-        new_obj = LineDict(self.col_headings)
+        new_obj = LineDict(self.headings)
         new_obj.update(self.copy())
         return new_obj
 
@@ -66,12 +126,12 @@ class LineDict(dict):
 
     def setdefault(self, k, d=None):
         """
-        Will try to return value of k. If k is not in LineDict, will add it, and add k to the end of col_headings.
+        Will try to return value of k. If k is not in LineDict, will add it, and add k to the end of headings.
         :param k: Key to be tried
         :param d: value to set at k if not found
         :return: value found at k (or d if k not found)
         """
-        if k not in self.col_headings:
+        if k not in self.headings:
             raise KeyError("{} not found in Columns")
         return super().setdefault(k, d)
 
@@ -79,7 +139,7 @@ class LineDict(dict):
         return "LineDict {{{}}}".format(", ".join("{}: {}".format(key, value) for key, value in self.items()))
 
     def append(self, key, value):
-        self.col_headings.append(key)
+        self.headings.append(key)
         self[key] = value
 
 
@@ -125,8 +185,8 @@ class ConfigGrid:
             self.title = self.__name__
         self.default = default
         self.path = ""
-        self.row_headings = list(row_headings)
-        self.col_headings = list(col_headings)
+        self.row_headings = UniqueList(row_headings)
+        self.col_headings = UniqueList(col_headings)
         self._data = LineDict(self.row_headings)
         for row_heading in self.row_headings:
             self._data[row_heading] = LineDict(self.col_headings, default)
@@ -246,8 +306,6 @@ class ConfigGrid:
         :return:
             The LineDict containing the contents of the row selected. This LineDict is also subscriptable
         """
-        if row_heading not in self.row_headings:
-            raise KeyError("{} not found in current rows!".format(row_heading))
         return self._data[row_heading]
 
     def __setitem__(self, row_heading, value):
@@ -261,6 +319,22 @@ class ConfigGrid:
         :param value: value to set row to
         """
         self._data.__setitem__(row_heading, value)
+
+    def __eq__(self, other):
+        """
+        True if rows and headings of both grids are equal
+        :param other: ConfigGrid to compare to
+        :return:
+        """
+        return set(self.row_headings) == set(other.row_headings) and set(self.col_headings) == set(other.col_headings)
+
+    def __add__(self, other):
+        """
+        Shorthand for return current_grid.combine(other_grid)
+        :param other: another ConfigGrid
+        :return: combination of both grids
+        """
+        return self.combine(other)
 
     def preprocess_value(self, row, col, value):
         """
@@ -313,7 +387,7 @@ class ConfigGrid:
         :param file: file object for writing to
         :param csv_writer_args: dict of arguments to be passed to csv.writer see csv.writer documentation for details
         """
-        writer = csv.writer(file) if csv_writer_args else csv.writer(file, **csv_writer_args)
+        writer = csv.writer(file, lineterminator="\n") if not csv_writer_args else csv.writer(file, **csv_writer_args)
         fieldnames = [self.title] + self.col_headings
         writer.writerow(fieldnames)
         for row_heading, row in self.rows:
@@ -395,44 +469,96 @@ class ConfigGrid:
         return (self._data[row][col] for col in self.col_headings)
 
     def append_col(self, col_heading, col):
+        """
+        Add a column to the end of the grid
+
+        :param col_heading: name of new column
+        :param col: iterator containing values within new column
+        """
+        col = tuple(col)
+        if not len(self.row_headings) == len(col):
+            raise IndexError("Different number of incoming values, to rows to fill")
         self.col_headings.append(col_heading)
         for row_heading, value in zip(self.row_headings, col):
             self._data[row_heading][col_heading] = value
 
     def append_row(self, row_heading, row):
+        """
+        Add a row to the bottom of the grid
+
+        :param col_heading: name of new row
+        :param col: iterator containing values within new row
+        """
+        row = tuple(row)
+        if not len(self.col_headings) == len(row):
+            raise IndexError("Different number of incoming values, to cols to fill")
         self.row_headings.append(row_heading)
         self._data[row_heading] = LineDict(self.col_headings)
         for col_heading, value in zip(self.col_headings, row):
             self._data[row_heading][col_heading] = value
 
     def set_row(self, row_heading, values):
+        """
+        Replace the current values in the row specified by row_heading, with those in values
+
+        :param row_heading: Name of row to change
+        :param values: iterator containing values in order to update
+        """
+        values = tuple(values)
+        if not len(self.col_headings) == len(values):
+            raise IndexError("Different number of incoming values, to cols to fill")
         for col_heading, new_val in zip(self.col_headings, values):
             self._data[row_heading][col_heading] = new_val
 
     def set_col(self, col_heading, values):
+        """
+        Replace the current values in the col specified by col_heading, with those in values
+
+        :param row_heading: Name of col to change
+        :param values: iterator containing values, in order, to update
+        """
+        values = tuple(values)
+        if not len(self.row_headings) == len(values):
+            raise IndexError("Different number of incoming values, to rows to fill")
         for row_heading, new_val in zip(self.row_headings, values):
             self._data[row_heading][col_heading] = new_val
 
-    def combine(self, config_grid, overwrite=True):
-        new_rows = list(heading for heading in config_grid.row_headings if heading not in self.row_headings)
-        new_cols = list(heading for heading in config_grid.col_headings if heading not in self.col_headings)
+    def combine(self, other, overwrite=True):
+        """
+        Combine the rows and values from other in self. By default will add new rows/ columns to the end of the grid,
+        and will overwrite any matching columns/ rows.
+
+        CAN ONLY MODIFY ONE OF ROWS OR COLUMNS NOT BOTH.
+
+        if overwrite=False, any matching cells will not be over-writen by those in other.
+
+        :param other: another ConfigGrid
+        :param overwrite: do overwrite current matching cells with new ones?
+        """
+        new_rows = list(heading for heading in other.row_headings if heading not in self.row_headings)
+        new_cols = list(heading for heading in other.col_headings if heading not in self.col_headings)
         if len(new_rows) > 0 and len(new_cols) > 0:
             raise KeyError("Can only add to one row or column at a time, incoming grid does not match in either")
         for heading in new_rows:
-            self.append_row(heading, config_grid.row(heading))
+            self.append_row(heading, other.row(heading))
         for heading in new_cols:
-            self.append_col(heading, config_grid.col(heading))
+            self.append_col(heading, other.col(heading))
         if overwrite:
             if new_rows:
-                overlap_rows = (heading for heading in config_grid.row_headings if heading in self.row_headings)
+                overlap_rows = (heading for heading in other.row_headings if heading in self.row_headings)
                 for heading in overlap_rows:
-                    self.set_row(heading, config_grid.row(heading))
+                    self.set_row(heading, other.row(heading))
             if new_cols:
-                overlap_cols = (heading for heading in config_grid.col_headings if heading in self.col_headings)
+                overlap_cols = (heading for heading in other.col_headings if heading in self.col_headings)
                 for heading in overlap_cols:
-                    self.set_col(heading, config_grid.col(heading))
+                    self.set_col(heading, other.col(heading))
 
-    def __eq__(self, other):
-        return set(self.row_headings) == set(other.row_headings) and set(self.col_headings) == set(other.col_headings)
-
-
+    def swap_rows(self, row1, row2):
+        row1_i = self.row_headings.index(row1)
+        row2_i = self.row_headings.index(row2)
+        self.row_headings.swap(row1_i, row2_i)
+        
+    def swap_cols(self, col1, col2):
+        col1_i = self.col_headings.index(col1)
+        col2_i = self.col_headings.index(col2)
+        self.col_headings.swap(col1_i, col2_i)
