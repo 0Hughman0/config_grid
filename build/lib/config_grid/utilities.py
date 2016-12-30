@@ -26,6 +26,7 @@ class UniqueList(list):
             raise ValueError("All new values must be unique")
         super().append(x)
 
+
     def __iadd__(self, *args, **kwargs):
         val = super().__iadd__(*args, **kwargs)
         if val.check_still_unique():
@@ -80,7 +81,7 @@ class LineDict(dict):
 
     def __setitem__(self, key, value):
         if key not in self.headings:
-            raise KeyError("{} not found in row/ column headings: {}".format(key, self.headings))
+            raise KeyError("{} not found in Columns".format(key))
         return super().__setitem__(key, value)
 
     def __getitem__(self, item):
@@ -88,7 +89,7 @@ class LineDict(dict):
             return super().__getitem__(item)
         except KeyError:
             if item not in self.headings:
-                raise KeyError("{} not found in row/ column headings: {}".format(item, self.headings))
+                raise KeyError("{} not found in Columns".format(item))
             else:
                 return self.default
 
@@ -130,7 +131,7 @@ class LineDict(dict):
         :return: value found at k (or d if k not found)
         """
         if k not in self.headings:
-            raise KeyError("{} not found in row/ column headings: {}".format(k, self.headings))
+            raise KeyError("{} not found in Columns")
         return super().setdefault(k, d)
 
     def __repr__(self):
@@ -139,3 +140,44 @@ class LineDict(dict):
     def append(self, key, value):
         self.headings.append(key)
         self[key] = value
+
+WidthText = namedtuple("WidthText", ("text", "width"))
+
+class GridPrint:
+
+    def __init__(self, row_headings=None, col_headings=None, title=""):
+        self.row_headings = row_headings if row_headings else []
+        self.col_headings = col_headings if col_headings else []
+        self.title = title
+        self.rows = []
+        self.padding = 2
+
+    def __call__(self, row):
+        self.rows.append(row)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        first_col = [self.title] + self.row_headings
+        headed_data_rows = [self.col_headings] + self.rows
+        headed_data_cols = [col for col in zip(*headed_data_rows)]
+        all_cols = first_col + headed_data_cols
+        print(all_cols)
+        width_cols = []
+        for col in all_cols:
+            max_width = self.max_width(col)
+            width_col = []
+            for val in col:
+                width_col.append((WidthText(val, max_width)))
+            width_cols.append(width_col)
+        rows = []
+        for row in zip(*width_cols):
+            print("".join(str(value.text).ljust(value.width + self.padding) for value in row))
+
+    def max_width(self, col):
+        return max(len(str(value)) for value in col)
+
+
+
+

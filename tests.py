@@ -13,8 +13,8 @@ class BaseCase:
             self.assertEqual(cell.value, t_cell.value)
 
     def test_headings(self):
-        self.assertSequenceEqual(self.grid.row_headings, ("Row 1", "Row 2"))
-        self.assertSequenceEqual(self.grid.col_headings, ("Col 1", "Col 2", "Col 3", "Col 4"))
+        self.assertSequenceEqual(self.grid.row_hds, ("Row 1", "Row 2"))
+        self.assertSequenceEqual(self.grid.col_hds, ("Col 1", "Col 2", "Col 3", "Col 4"))
 
     def test_subscripting(self):
         self.assertEqual(self.grid["Row 1"]["Col 3"], 3)
@@ -24,36 +24,37 @@ class BaseCase:
         self.assertRaises(KeyError, lambda: self.grid["Row 1"]["Col ?"])
 
     def test_iters(self):
-        cols_tuple = (("Col 1", (("Row 1", 1), ("Row 2", 5))),
-                      ("Col 2", (("Row 1", 2), ("Row 2", 6))),
-                      ("Col 3", (("Row 1", 3), ("Row 2", 7))),
-                      ("Col 4", (("Row 1", 4), ("Row 2", 8))))
-        for cols, t_cols in zip(self.grid.cols, cols_tuple):
-            col_heading, col = cols
-            t_col_heading, t_col = t_cols
-            for rows, t_rows in zip(col, t_col):
-                row_heading, value = rows
-                t_row_heading, t_value = t_rows
-                self.assertEqual(col_heading, t_col_heading)
-                self.assertEqual(row_heading, t_row_heading)
+
+        cols_tuple = ((1, 5),
+                      (2, 6),
+                      (3, 7),
+                      (4, 8))
+        for col, t_col in zip(self.grid.cols, cols_tuple):
+            for value, t_value in zip(col, t_col):
                 self.assertEqual(value, t_value)
-        rows_tuple = (("Row 1", (("Col 1", 1), ("Col 2", 2), ("Col 3", 3), ("Col 4", 4))),
-                      ("Row 2", (("Col 1", 5), ("Col 2", 6), ("Col 3", 7), ("Col 4", 8))))
-        for rows, t_rows in zip(self.grid.rows, rows_tuple):
-            row_heading, row = rows
-            t_row_heading, t_row = t_rows
-            for cols, t_cols in zip(row, t_row):
-                col_heading, value = cols
-                t_col_heading, t_value = t_cols
-                self.assertEqual(col_heading, t_col_heading)
-                self.assertEqual(row_heading, t_row_heading)
+
+        rows_tuple = ((1, 2, 3, 4),
+                      (5, 6, 7, 8))
+        for row, t_row in zip(self.grid.rows, rows_tuple):
+            for value, t_value in zip(row, t_row):
+                self.assertEqual(value, t_value)
+
+        expected = \
+            (("Row 1", "Col 1", 1), ("Row 1", "Col 2", 2), ("Row 1", "Col 3", 3), ("Row 1", "Col 4", 4),
+             ("Row 2", "Col 1", 5), ("Row 2", "Col 2", 6), ("Row 2", "Col 3", 7), ("Row 2", "Col 4", 8))
+        iter_expected = iter(expected)
+        for row_hd, row in zip(self.grid.row_hds, self.grid.rows):
+            for col_hd, value in zip(self.grid.col_hds, row):
+                t_row_hd, t_col_hd, t_value = iter_expected.__next__()
+                self.assertEqual(row_hd, t_row_hd)
+                self.assertEqual(col_hd, t_col_hd)
                 self.assertEqual(value, t_value)
         cells_tuple = []
-        for row_heading, row in rows_tuple:
-            for col_heading, value in row:
-                cells_tuple.append(Cell(row_heading, col_heading, value))
+        for row_hd, col_hd, value in expected:
+            cells_tuple.append(Cell(row_hd, col_hd, value))
         for cell, t_cell in zip(self.grid.cells, cells_tuple):
             self.assertEqual(cell, t_cell)
+
 
     def test_col_row(self):
         self.assertSequenceEqual(tuple(self.grid.col("Col 1")), (1, 5))
@@ -197,3 +198,5 @@ class FilledCase(unittest.TestCase, BaseCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
