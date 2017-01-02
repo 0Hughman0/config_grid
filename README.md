@@ -124,7 +124,7 @@ Using convenience methods:
     grid.append_row("Midnight Snack", ["Shmores!"] * 4)
 
     print(grid)
-        Meals           Mon       Tues                  Weds      Thur
+    Meals           Mon       Tues                  Weds      Thur
     Breakfast       Toast     Toast                 Toast     Toast
     Lunch           Soup      Something Different!  Soup      Soup
     Dinner          Curry!    Curry!                Curry!    Chicken & rice
