@@ -1,6 +1,6 @@
 import csv
 
-from .utilities import Cell, UniqueList, LineDict, GridPrint
+from .utilities import Cell, UniqueList, LineDict
 
 
 class ConfigGrid:
@@ -34,11 +34,13 @@ class ConfigGrid:
             grid["Tues"]["Lunch"] = "Something different!"
 
         :param row_hds:
-            List containing the names/ keys that correspond to the row headings in your table (will be converted to a tuple [if not already one!])
+            List containing the names/ keys that correspond to the row headings in your table
         :param col_hds:
             As row_hds, but with the col headings
         :param title:
             Title of your table. Not really necessary, but when printed/ exported, this will be in the top left corner
+        :param default:
+            Default value to fill grid with upon initialisation
          """
         self.title = title
         self.default = default
@@ -157,7 +159,7 @@ class ConfigGrid:
             row_strings.append("".join((val.ljust(width) for val, width in zip(row, widths))))
         return "\n".join(row_strings)
 
-    def __getitem__(self, row_heading):
+    def __getitem__(self, row_hd):
         """
         Method used for accessing specific cells, it's expected that you'll also call __getitem__ on the LineDict
         returned e.g.
@@ -166,12 +168,12 @@ class ConfigGrid:
 
         if you just desire an iterator over the contents of a row, use the row(row_heading) method
 
-        :param item:
+        :param row_hd:
             desired row key
         :return:
             The LineDict containing the contents of the row selected. This LineDict is also subscriptable
         """
-        return self._data[row_heading]
+        return self._data[row_hd]
 
     def __setitem__(self, row_heading, value):
         """
@@ -256,7 +258,8 @@ class ConfigGrid:
         fieldnames = [self.title] + self.col_hds
         writer.writerow(fieldnames)
         for row_heading, row in zip(self.row_hds, self.rows):
-            data_bit = tuple(self.postprocess_value(row_heading, col_heading, value) for col_heading, value in zip(self.col_hds, row))
+            data_bit = tuple(self.postprocess_value(row_heading, col_heading, value)
+                             for col_heading, value in zip(self.col_hds, row))
             combined = (row_heading,) + data_bit
             writer.writerow(combined)
 
@@ -347,20 +350,20 @@ class ConfigGrid:
         for row_heading, value in zip(self.row_hds, col):
             self._data[row_heading][col_heading] = value
 
-    def append_row(self, row_heading, row):
+    def append_row(self, row_hd, row):
         """
         Add a row to the bottom of the grid
 
-        :param col_heading: name of new row
-        :param col: iterator containing values within new row
+        :param row_hd: name of new row
+        :param row: iterator containing values within new row
         """
         row = tuple(row)
         if not len(self.col_hds) == len(row):
             raise IndexError("Different number of incoming values, to cols to fill")
-        self.row_hds.append(row_heading)
-        self._data[row_heading] = LineDict(self.col_hds)
+        self.row_hds.append(row_hd)
+        self._data[row_hd] = LineDict(self.col_hds)
         for col_heading, value in zip(self.col_hds, row):
-            self._data[row_heading][col_heading] = value
+            self._data[row_hd][col_heading] = value
 
     def set_row(self, row_heading, values):
         """
@@ -375,18 +378,18 @@ class ConfigGrid:
         for col_heading, new_val in zip(self.col_hds, values):
             self._data[row_heading][col_heading] = new_val
 
-    def set_col(self, col_heading, values):
+    def set_col(self, col_hd, values):
         """
         Replace the current values in the col specified by col_heading, with those in values
 
-        :param row_heading: Name of col to change
+        :param col_hd: Name of col to change
         :param values: iterator containing values, in order, to update
         """
         values = tuple(values)
         if not len(self.row_hds) == len(values):
             raise IndexError("Different number of incoming values, to rows to fill")
         for row_heading, new_val in zip(self.row_hds, values):
-            self._data[row_heading][col_heading] = new_val
+            self._data[row_heading][col_hd] = new_val
 
     def combine(self, other, overwrite=True):
         """
